@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+
+<mapper namespace="com.mycompany.let_ffle.dao.BoardDao">
+
+	<insert id="insertBoard" parameterType="Board">
+		<selectKey keyProperty="bno" resultType="int" order="BEFORE">
+			SELECT
+			SEQ_BNO.NEXTVAL FROM dual
+		</selectKey>
+		INSERT into board (
+		bno, mid, btitle, bcontent, bcategory, battachoname, 
+		battachtype, battachdata, bhitcount, bcreatedat, benabled
+		)
+		VALUES (
+		#{bno},#{mid},#{btitle},#{bcontent},#{bcategory},#{battachoname},
+		#{battachtype},#{battachdata},#{bhitcount},systimestamp, 1
+		)
+	</insert>
+
+	<update id="updateBoard" parameterType="Board">
+		UPDATE board
+		SET	btitle=#{btitle}, bcontent=#{bcontent},
+		bcategory=#{bcategory}, bupdatedat=systimestamp
+		<if test="battachdata!=null">
+			, battachoname=#{battachoname}
+			, battachtype=#{battachtype}
+			, battachdata=#{battachdata}
+		</if>
+		WHERE bno=#{bno}
+	</update>
+
+	<update id="deleteBoard" parameterType="int">
+		UPDATE board
+		SET benabled=0
+		WHERE bno=#{bno}
+	</update>
+
+	<select id="readBoard" parameterType="int" resultType="Board">
+		SELECT b.bno, b.mid, b.btitle, b.bcontent, b.bcategory,	m.mnickname AS "battachoname", 
+		b.battachtype, b.battachdata, b.bhitcount, b.bcreatedat, b.benabled
+		FROM board b INNER JOIN member m ON b.mid = m.mid
+		WHERE bno = #{bno}
+	</select>
+
+	<select id="boardCount" resultType="int">
+		SELECT count(*)
+		FROM board
+		WHERE benabled = 1
+	</select>
+	
+	<select id="getBoardCountByWord" parameterType="String" resultType="int">
+		SELECT count(*)
+		FROM board
+		WHERE benabled = 1
+		<if test="searchType == 'title'">
+		AND btitle like '%${word}%'
+		</if>
+		<if test="searchType == 'content'">
+		AND bcontent like '%${word}%'
+		</if>
+		<if test="searchType == 'nickname'">
+		AND mid like '%${word}%'
+		</if>
+		<if test="searchType == 'titleOrContet'">
+		AND (btitle like '%${word}%' OR bcontent like '%${word}%')
+		</if>
+	</select>
+	
+	<select id="getBoardCountByCategory" parameterType="String" resultType="int">
+		SELECT count(*)
+		FROM board
+		WHERE benabled = 1
+		AND bcategory = #{category}
+	</select>
+
+	<select id="getBoardByBno" parameterType="int" resultType="Board">
+		SELECT *
+		FROM board
+		WHERE bno =#{bno}
+	</select>
+
+	<select id="getBoardList" parameterType="Map" resultType="Board">
+		SELECT rnum, bno, mnickname as mid, bcategory, btitle, bcontent,bcreatedat, bupdatedat, bhitcount
+		FROM (
+			SELECT rownum as rnum, bno, mnickname, bcategory, btitle, bcontent, bcreatedat, bupdatedat, bhitcount
+			FROM (
+				SELECT bno, mnickname, bcategory, btitle, bcontent,bcreatedat, bupdatedat, bhitcount
+				FROM board b INNER JOIN member m on b.mid = m.mid
+				WHERE benabled = 1
+              
+				<if test="word != '' and searchType == 'title'">
+				AND btitle like '%${word}%'
+				</if>
+				<if test="word != '' and searchType == 'content'">
+				AND bcontent like '%${word}%'
+				</if>
+				<if test="word != '' and searchType == 'nickname'">
+				AND mnickname like '%${word}%'
+				</if>
+				<if test="word != '' and searchType == 'titleOrContet'">
+				AND (btitle like '%${word}%' OR bcontent like '%${word}%')
+				</if>
+				ORDER BY bno desc
+			)
+			<![CDATA[ 
+			WHERE rownum <= #{pager.endRowNo}
+		)
+		WHERE rnum >= #{pager.startRowNo}
+		]]>
+	</select>
+	
+	<select id="getBoardListByCategory" parameterType="Map"	resultType="Board">
+		SELECT rnum, bno, mnickname AS mid, bcategory, btitle, bcontent,bcreatedat, bupdatedat, bhitcount
+		FROM (
+			SELECT rownum AS rnum, bno, mnickname, bcategory, btitle, bcontent, bcreatedat, bupdatedat, bhitcount
+			FROM (
+				SELECT bno, mnickname, bcategory, btitle, bcontent, bcreatedat, bupdatedat, bhitcount
+				FROM board b INNER JOIN member m ON b.mid = m.mid
+				WHERE benabled = 1
+				AND bcategory = #{category}
+				ORDER BY bno DESC
+			)
+			<![CDATA[ 
+			WHERE rownum <= #{pager.endRowNo}
+		)
+		WHERE rnum >= #{pager.startRowNo}
+		]]>
+	</select>
+
+	<update id="updateHitCount" parameterType="int">
+		UPDATE board
+		SET bhitcount = bhitcount + 1
+		WHERE bno = #{bno}
+	</update>
+
+	<select id="getBoardTitleList" parameterType="Map" resultType="Board">
+		<![CDATA[
+		SELECT rnum, bno, btitle, bcreatedat
+		FROM (
+			SELECT rownum as rnum, bno, btitle, bcreatedat
+			FROM ( 
+				SELECT DISTINCT b.bno, b.btitle, b.bcreatedat
+				FROM board b INNER JOIN boardComment bc on b.bno = bc.bno
+				WHERE bc.mid = #{mid} AND bc.cenabled = 1   
+				ORDER BY b.bno DESC
+			)
+			WHERE rownum <= #{pager.endRowNo}
+		)
+		WHERE rnum >= #{pager.startRowNo}
+		]]>
+	</select>
+</mapper>    
